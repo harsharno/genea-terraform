@@ -10,13 +10,13 @@ resource "aws_lb" "alb" {
   name               = "microservice-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.ecs.id]
+  security_groups    = [aws_security_group.alb_sg.id]
   subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 }
 
 resource "aws_lb_target_group" "microservice" {
   name        = "tg-microservice"
-  port        = 3000
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
@@ -24,7 +24,7 @@ resource "aws_lb_target_group" "microservice" {
 
 resource "aws_lb_listener" "listener_microservice" {
   load_balancer_arn = aws_lb.alb.arn
-  port              = 3000
+  port              = 8080
   protocol          = "HTTP"
 
   default_action {
@@ -45,12 +45,12 @@ resource "aws_ecs_task_definition" "microservice" {
     {
       name         = "microservice"
       image        = "${aws_ecr_repository.microservice.repository_url}:latest"
-      portMappings = [{ containerPort = 3000, hostPort = 3000 }]
+      portMappings = [{ containerPort = 8080, hostPort = 8080 }]
       secrets = [
-        { name = "DB_NAME", valueFrom = "${aws_secretsmanager_secret.db_secret.arn}:dbname::" }
+        { name = "DB_NAME", valueFrom = "${aws_secretsmanager_secret.db_secret.arn}:dbname::" },
         { name = "DB_HOST", valueFrom = "${aws_secretsmanager_secret.db_secret.arn}:host::" },
         { name = "DB_USERNAME", valueFrom = "${aws_secretsmanager_secret.db_secret.arn}:username::" },
-        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.db_secret.arn}:password::" },
+        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.db_secret.arn}:password::" }
       ]
     }
   ])
@@ -71,6 +71,6 @@ resource "aws_ecs_service" "microservice" {
   load_balancer {
     target_group_arn = aws_lb_target_group.microservice.arn
     container_name   = "microservice"
-    container_port   = 3000
+    container_port   = 8080
   }
 }
